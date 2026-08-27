@@ -1,0 +1,26 @@
+{
+  "name": "shadow-ai-copilot",
+  "version": "2.0.0",
+  "description": "Shadow AI — Native Stealth AI Interview Assistant & Desktop Copilot",
+  "main": "electron/main.cjs",
+  "type": "module",
+  "scripts": {
+    "dev": "vite --port 3000 --host",
+    "start": "NODE_ENV=production electron .",
+    "start:electron-only": "NODE_ENV=development ELECTRON_DEV_URL=http://localhost:3000/#hud electron .",
+    "start:desktop": "concurrently \"npm run dev\" \"wait-on http://localhost:3000 && NODE_ENV=development ELECTRON_DEV_URL=http://localhost:3000/#hud electron .\"",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "canvas-confetti": "^1.9.4",
+    "lucide": "^0.475.0",
+    "prismjs": "^1.29.0"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2",
+    "electron": "^34.2.0",
+    "vite": "^6.1.0",
+    "wait-on": "^8.0.2"
+  }
+}

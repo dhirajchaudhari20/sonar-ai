@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sonar AI — Live Interview Copilot</title>
+  <!-- Modern Inter & JetBrains Mono Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="./src/styles/index.css">
+  <link rel="stylesheet" href="./src/styles/notch-hud.css">
+</head>
+<body>
+
+  <!-- TOP NOTCH DYNAMIC ISLAND STEALTH BAR (Matching Photo 1) -->
+  <div class="top-notch-widget-container" id="topNotchWidget">
+    <div class="notch-pill-bar" id="notchPillBar">
+      <!-- Drag Grip Handle -->
+      <div class="notch-drag-grip" id="notchDragGrip" title="Drag to move HUD anywhere">
+        <svg width="10" height="14" viewBox="0 0 10 16" fill="currentColor"><circle cx="3" cy="3" r="1.5"/><circle cx="7" cy="3" r="1.5"/><circle cx="3" cy="8" r="1.5"/><circle cx="7" cy="8" r="1.5"/><circle cx="3" cy="13" r="1.5"/><circle cx="7" cy="13" r="1.5"/></svg>
+      </div>
+
+      <!-- Live Mic / Audio Visualizer -->
+      <div class="notch-pill-btn active" id="btnNotchAudioToggle" title="Audio Listening (Click to toggle)">
+        <span class="pill-dot live-pulse" style="background: #22c55e;"></span>
+        <canvas class="notch-wave-canvas" id="notchWaveCanvas" width="32" height="14"></canvas>
+      </div>
+
+      <!-- AI Answer Pill -->
+      <button class="notch-pill-btn active" id="btnNotchAnswer" title="Trigger AI Answer (⌘↩)">
+        <span>Answer</span>
+        <span class="notch-kbd-shortcut">⌘↩</span>
+      </button>
+
+      <!-- Screenshot Pill -->
+      <button class="notch-pill-btn" id="btnNotchScreenshot" title="Capture & Analyze Screen (⌘⇧S)">
+        <span>Screenshot</span>
+        <span class="notch-kbd-shortcut">⌘⇧S</span>
+      </button>
+
+      <!-- Chat Pill -->
+      <button class="notch-pill-btn" id="btnNotchChat" title="Chat (⌘K)">
+        <span>Chat</span>
+        <span class="notch-kbd-shortcut">⌘K</span>
+      </button>
+
+      <!-- Auto (Beta) Toggle Pill -->
+      <button class="notch-pill-btn active" id="btnNotchAutoAnswer" title="Auto Answer Mode (Beta)">
+        <span>⚡ Auto (Beta)</span>
+      </button>
+
+      <!-- Meet / Tab Audio Pill -->
+      <button class="notch-pill-btn" id="btnNotchMute" title="Connect Google Meet / Zoom Audio">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 18v-6a9 9 0 0 1 18 0v6"/><path d="M21 19a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3zM3 19a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2H3z"/></svg>
+      </button>
+
+      <!-- Settings Menu Pill -->
+      <button class="notch-pill-btn" id="btnNotchMenu" title="Menu & Settings">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+      </button>
+
+      <!-- Clear Button -->
+      <button class="notch-pill-btn" id="btnNotchClear" title="Clear Screen (⌘⌫)">
+        <span>Clear</span>
+        <span class="notch-kbd-shortcut">⌘⌫</span>
+      </button>
+
+      <!-- End Session Button -->
+      <button class="notch-pill-btn end-session-btn" id="btnNotchEndSession" title="End Call Session">
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M18 6 6 18M6 6l12 12"/></svg>
+        <span>End</span>
+      </button>
+
+      <!-- Session Timer Pill -->
+      <div class="notch-pill-btn timer-pill" id="notchTimerPill">
+        <span id="notchTimerText">00:00</span>
+      </div>
+    </div>
+
+    <!-- Live Real-Time Subtitles Ticker (Parakeet Word Stream) -->
+    <div class="notch-subtitles-card" id="notchSubtitlesCard">
+      <div class="subtitles-badge">
+        <span class="pill-dot live-pulse" style="background: #38bdf8;"></span>
+        <span>LIVE ASR</span>
+      </div>
+      <div class="subtitles-live-text" id="subtitlesLiveText">
+        <span style="color: #94a3b8; font-style: italic;">Listening for live interviewer speech...</span>
+      </div>
+    </div>
+
+    <!-- Dropdown Menu -->
+    <div class="notch-settings-dropdown" id="notchSettingsDropdown">
+      <div class="dropdown-user-header">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="7" r="4"/><path d="M6 21v-2a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4v2"/></svg>
+        <span>dhirajvva14@gmail.com</span>
+      </div>
+
+      <div class="dropdown-menu-item" id="btnMenuDashboard">
+        <div class="menu-label-left">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="7" height="9" x="3" y="3" rx="1"/><rect width="7" height="5" x="14" y="3" rx="1"/><rect width="7" height="9" x="14" y="12" rx="1"/><rect width="7" height="5" x="3" y="16" rx="1"/></svg>
+          <span>Web Dashboard</span>
+        </div>
+        <span>↗</span>
+      </div>
+
+      <div class="dropdown-menu-item">
+        <div class="menu-label-left"><span>Private ⓘ</span></div>
+        <div class="toggle-switch-ios checked" id="togPrivate"></div>
+      </div>
+
+      <div class="dropdown-menu-item">
+        <div class="menu-label-left"><span>Auto-detect ⓘ</span></div>
+        <div class="toggle-switch-ios checked" id="togAutoDetect"></div>
+      </div>
+
+      <div class="dropdown-menu-item">
+        <div class="menu-label-left"><span>Zoom</span></div>
+        <div class="stepper-group">
+          <button class="stepper-btn" id="btnZoomOut">-</button>
+          <button class="stepper-btn" id="btnZoomIn">+</button>
+        </div>
+      </div>
+
+      <div class="dropdown-menu-item">
+        <div class="menu-label-left"><span>Opacity</span></div>
+        <div class="stepper-group">
+          <button class="stepper-btn" id="btnOpacityDown">-</button>
+          <button class="stepper-btn" id="btnOpacityUp">+</button>
+        </div>
+      </div>
+
+      <div class="dropdown-menu-item">
+        <div class="menu-label-left"><span>Auto Answer (Beta)</span></div>
+        <div class="toggle-switch-ios checked" id="togAutoAnswer"></div>
+      </div>
+    </div>
+
+    <!-- Live Teleprompter Answer Card (Matching Parakeet Photo 1 & Photo 2 Exactly) -->
+    <div class="notch-answer-teleprompter" id="notchAnswerTeleprompter">
+      <div class="teleprompter-q-strip">
+        <div class="teleprompter-header-left">
+          <button class="pager-arrow-btn" id="btnPagerPrev" title="Previous Solution">◀</button>
+          <span class="pager-num-badge" id="pagerText">1/1</span>
+          <button class="pager-arrow-btn" id="btnPagerNext" title="Next Solution">▶</button>
+          <span class="teleprompter-q-text" id="teleprompterQTitle">💬 Question: Ready</span>
+        </div>
+        <div class="teleprompter-header-actions">
+          <button class="teleprompter-action-btn" id="btnCopyAnswer" title="Copy Answer Code">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>
+          </button>
+          <button class="teleprompter-action-btn" id="btnClearTeleprompter" title="Clear (⌘⌫)">
+            Clear ⌘⌫
+          </button>
+          <button class="teleprompter-action-btn" id="btnCloseTeleprompter" title="Close Teleprompter (Esc)">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M18 6 6 18M6 6l12 12"/></svg>
+          </button>
+        </div>
+      </div>
+
+      <div class="teleprompter-body-content" id="teleprompterBodyContent">
+        <div style="color: #94a3b8; font-style: italic; font-size: 0.86rem; padding: 4px;">
+          Listening to live interviewer audio... Say a question (e.g. <em>"Write a program in Python for for loop"</em>) or click <strong>[Screenshot]</strong> to analyze.
+        </div>
+      </div>
+      <div class="teleprompter-resize-grip">◢</div>
+    </div>
+  </div>
+
+  <script type="module" src="./src/main.js"></script>
+</body>
+</html>
