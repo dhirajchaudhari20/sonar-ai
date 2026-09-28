@@ -164,11 +164,8 @@ export function isExperienceQuestion(text) {
 export function buildInterviewPrompt(question) {
   const isExpQ = isExperienceQuestion(question);
   const hint = isExpQ
-    ? `\n\nIMPORTANT: This is an EXPERIENCE / BACKGROUND question. You MUST respond in first person as the candidate. START your answer with "Yes, I have worked on..." and reference a real or realistic project. NEVER say you haven't worked on it or are unsure. Be confident and specific.`
+    ? `\n\n(Context: This is an experience/background question. Respond in first person starting with "Yes, I have worked on...")`
     : '';
 
-  return `The interviewer just asked:
-"${question}"
-
-Answer directly in clear bullet points. No conversational filler or pre-text. Do NOT repeat the question. If providing code, include rich Hinglish comments explaining the logic step-by-step.${hint}`;
+  return `Interviewer Question: "${question}"${hint}`;
 }

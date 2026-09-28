@@ -1234,10 +1234,13 @@ class SonarAiApp {
     if (q1Match && q1Match[1]) followUps.push(q1Match[1].trim());
     if (q2Match && q2Match[1]) followUps.push(q2Match[1].trim());
 
-    // Clean up "Anticipated Follow-ups" from the display text
+    // Clean up "Anticipated Follow-ups" and echoed prompt meta-instructions from display text
     let displayRaw = raw
       .replace(/(\*{1,3}|_{1,3})🔮 Anticipated Follow-ups:?(\*{1,3}|_{1,3})?[\s\S]*$/gi, '')
-      .replace(/🔮 Anticipated Follow-ups:?[\s\S]*$/gi, '');
+      .replace(/🔮 Anticipated Follow-ups:?[\s\S]*$/gi, '')
+      .replace(/^[\s\S]*?We need to answer directly[^\n]*\n?/gi, '')
+      .replace(/^(?:We need to|Must|You must|Instructions:|Answer directly|Provide definition|No code needed|Ensure no repetition|Provide concise|No filler, no pre-text)[^\n]*\n?/gmi, '')
+      .trim();
 
     // Convert Markdown to HTML
     let rawHtml = marked.parse(displayRaw, { breaks: true, gfm: true });
