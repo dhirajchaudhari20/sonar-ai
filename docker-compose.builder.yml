@@ -1,0 +1,11 @@
+version: '3.8'
+
+services:
+  electron-builder:
+    image: electronuserland/builder:wine
+    volumes:
+      - .:/project
+      - ~/.cache/electron:/root/.cache/electron
+      - ~/.cache/electron-builder:/root/.cache/electron-builder
+    working_dir: /project
+    command: bash -c "npm install && npm run package:win && npm run package:linux"

@@ -8,12 +8,12 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="./src/styles/index.css">
+  <link rel="stylesheet" href="./src/styles/main.css">
   <link rel="stylesheet" href="./src/styles/notch-hud.css">
 </head>
 <body>
 
-  <!-- TOP NOTCH DYNAMIC ISLAND STEALTH BAR (Matching Photo 1) -->
+  <!-- TOP NOTCH DYNAMIC ISLAND STEALTH BAR -->
   <div class="top-notch-widget-container" id="topNotchWidget">
     <div class="notch-pill-bar" id="notchPillBar">
       <!-- Drag Grip Handle -->
@@ -21,11 +21,13 @@
         <svg width="10" height="14" viewBox="0 0 10 16" fill="currentColor"><circle cx="3" cy="3" r="1.5"/><circle cx="7" cy="3" r="1.5"/><circle cx="3" cy="8" r="1.5"/><circle cx="7" cy="8" r="1.5"/><circle cx="3" cy="13" r="1.5"/><circle cx="7" cy="13" r="1.5"/></svg>
       </div>
 
-      <!-- Live Mic / Audio Visualizer -->
-      <div class="notch-pill-btn active" id="btnNotchAudioToggle" title="Audio Listening (Click to toggle)">
-        <span class="pill-dot live-pulse" style="background: #22c55e;"></span>
-        <canvas class="notch-wave-canvas" id="notchWaveCanvas" width="32" height="14"></canvas>
-      </div>
+      <!-- Live Mic / Mute Toggle Pill -->
+      <button class="notch-pill-btn active" id="btnNotchAudioToggle" title="Mute/Unmute Mic (⌘M)">
+        <span class="pill-dot live-pulse" id="micStatusDot" style="background: #22c55e;"></span>
+        <span id="micLabelText">Mic</span>
+        <canvas class="notch-wave-canvas" id="notchWaveCanvas" width="28" height="12"></canvas>
+        <span class="notch-kbd-shortcut">⌘M</span>
+      </button>
 
       <!-- AI Answer Pill -->
       <button class="notch-pill-btn active" id="btnNotchAnswer" title="Trigger AI Answer (⌘↩)">
@@ -47,12 +49,39 @@
 
       <!-- Auto (Beta) Toggle Pill -->
       <button class="notch-pill-btn active" id="btnNotchAutoAnswer" title="Auto Answer Mode (Beta)">
-        <span>⚡ Auto (Beta)</span>
+        <span>⚡ Auto</span>
+      </button>
+
+      <!-- Stall Phrases Toggle Pill -->
+      <button class="notch-pill-btn active" id="btnNotchStall" title="Show stalling phrase while AI generates answer">
+        <span>🎭 Stall</span>
+      </button>
+
+      <!-- Keywords-Only Mode Toggle Pill -->
+      <button class="notch-pill-btn" id="btnNotchKeywords" title="Show keyword-only mode instead of full answers">
+        <span>🔑 Keys</span>
+      </button>
+
+      <!-- Eye-Contact Teleprompter Mode Toggle -->
+      <button class="notch-pill-btn" id="btnNotchEyeContact" title="Toggle Eye-Contact Mode (⌘E)">
+        <span>👁️ Eye</span>
+        <span class="notch-kbd-shortcut">⌘E</span>
+      </button>
+
+      <!-- Transparency Toggle Pill -->
+      <button class="notch-pill-btn" id="btnNotchTransparency" title="Toggle Transparency Mode (⌘T)">
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="3" opacity="0.5"/><rect x="7" y="7" width="10" height="10" rx="2"/></svg>
+        <span>Glass</span>
       </button>
 
       <!-- Meet / Tab Audio Pill -->
       <button class="notch-pill-btn" id="btnNotchMute" title="Connect Google Meet / Zoom Audio">
         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 18v-6a9 9 0 0 1 18 0v6"/><path d="M21 19a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3zM3 19a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2H3z"/></svg>
+      </button>
+
+      <!-- Debrief Summary Pill -->
+      <button class="notch-pill-btn" id="btnNotchDebrief" title="Interview Summary & Debrief (⌘D)">
+        <span>📑 Debrief</span>
       </button>
 
       <!-- Settings Menu Pill -->
@@ -78,11 +107,11 @@
       </div>
     </div>
 
-    <!-- Live Real-Time Subtitles Ticker (Parakeet Word Stream) -->
+    <!-- Live Real-Time Subtitles Ticker with Speaker Diarization -->
     <div class="notch-subtitles-card" id="notchSubtitlesCard">
-      <div class="subtitles-badge">
+      <div class="subtitles-badge" id="subtitlesSpeakerBadge">
         <span class="pill-dot live-pulse" style="background: #38bdf8;"></span>
-        <span>LIVE ASR</span>
+        <span id="subtitlesBadgeText">🎧 INTERVIEWER</span>
       </div>
       <div class="subtitles-live-text" id="subtitlesLiveText">
         <span style="color: #94a3b8; font-style: italic;">Listening for live interviewer speech...</span>
@@ -96,17 +125,28 @@
         <span>dhirajvva14@gmail.com</span>
       </div>
 
-      <div class="dropdown-menu-item" id="btnMenuDashboard">
+      <div class="dropdown-menu-item" id="btnMenuResume">
         <div class="menu-label-left">
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="7" height="9" x="3" y="3" rx="1"/><rect width="7" height="5" x="14" y="3" rx="1"/><rect width="7" height="9" x="14" y="12" rx="1"/><rect width="7" height="5" x="3" y="16" rx="1"/></svg>
-          <span>Web Dashboard</span>
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+          <span>Resume & Knowledge Base</span>
         </div>
-        <span>↗</span>
+        <span>✏️</span>
       </div>
 
-      <div class="dropdown-menu-item">
-        <div class="menu-label-left"><span>Private ⓘ</span></div>
-        <div class="toggle-switch-ios checked" id="togPrivate"></div>
+      <div class="dropdown-menu-item" id="btnMenuDebrief">
+        <div class="menu-label-left">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          <span>Export Session Debrief</span>
+        </div>
+      </div>
+      <div class="dropdown-menu-item" id="btnMenuApiKey">
+        <div class="menu-label-left"><span>🔑 Groq API Key Setup</span></div>
+        <span>⚙️</span>
+      </div>
+
+      <div class="dropdown-menu-item" id="btnMenuMuteMic">
+        <div class="menu-label-left"><span>Mute Mic (⌘M)</span></div>
+        <div class="toggle-switch-ios" id="togMuteMic"></div>
       </div>
 
       <div class="dropdown-menu-item">
@@ -115,28 +155,36 @@
       </div>
 
       <div class="dropdown-menu-item">
-        <div class="menu-label-left"><span>Zoom</span></div>
-        <div class="stepper-group">
-          <button class="stepper-btn" id="btnZoomOut">-</button>
-          <button class="stepper-btn" id="btnZoomIn">+</button>
-        </div>
-      </div>
-
-      <div class="dropdown-menu-item">
-        <div class="menu-label-left"><span>Opacity</span></div>
-        <div class="stepper-group">
-          <button class="stepper-btn" id="btnOpacityDown">-</button>
-          <button class="stepper-btn" id="btnOpacityUp">+</button>
-        </div>
+        <div class="menu-label-left"><span>Eye-Contact Mode (⌘E)</span></div>
+        <div class="toggle-switch-ios" id="togEyeContact"></div>
       </div>
 
       <div class="dropdown-menu-item">
         <div class="menu-label-left"><span>Auto Answer (Beta)</span></div>
         <div class="toggle-switch-ios checked" id="togAutoAnswer"></div>
       </div>
+
+      <div class="dropdown-menu-item" id="menuTransparencyRow">
+        <div class="menu-label-left">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="3" opacity="0.5"/><rect x="7" y="7" width="10" height="10" rx="2"/></svg>
+          <span>Glass / Transparency</span>
+        </div>
+        <div class="toggle-switch-ios" id="togTransparency"></div>
+      </div>
+
+      <!-- Transparency Slider Row (shown when transparency is ON) -->
+      <div class="dropdown-menu-item transparency-slider-row" id="transparencySliderRow" style="display:none;">
+        <div class="menu-label-left" style="flex:1; gap:8px;">
+          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#38bdf8" stroke-width="2"><circle cx="12" cy="12" r="10" opacity="0.4"/><circle cx="12" cy="12" r="5"/></svg>
+          <span style="color:#94a3b8; font-size:0.72rem;">Opacity</span>
+          <input type="range" id="transparencySlider" min="10" max="95" value="70" step="5"
+            style="flex:1; accent-color:#38bdf8; cursor:pointer; height:3px;">
+          <span id="transparencyValueLabel" style="color:#38bdf8; font-size:0.72rem; font-weight:700; min-width:26px; text-align:right;">70%</span>
+        </div>
+      </div>
     </div>
 
-    <!-- Live Teleprompter Answer Card (Matching Parakeet Photo 1 & Photo 2 Exactly) -->
+    <!-- Live Teleprompter Answer Card -->
     <div class="notch-answer-teleprompter" id="notchAnswerTeleprompter">
       <div class="teleprompter-q-strip">
         <div class="teleprompter-header-left">
@@ -146,8 +194,12 @@
           <span class="teleprompter-q-text" id="teleprompterQTitle">💬 Question: Ready</span>
         </div>
         <div class="teleprompter-header-actions">
+          <button class="teleprompter-action-btn" id="btnTeleprompterEyeContact" title="Toggle Eye-Contact Mode (⌘E)">
+            👁️ Eye
+          </button>
           <button class="teleprompter-action-btn" id="btnCopyAnswer" title="Copy Answer Code">
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>
+            <span>Copy</span>
           </button>
           <button class="teleprompter-action-btn" id="btnClearTeleprompter" title="Clear (⌘⌫)">
             Clear ⌘⌫
@@ -158,12 +210,137 @@
         </div>
       </div>
 
+      <!-- Main Answer & Diagram Content -->
       <div class="teleprompter-body-content" id="teleprompterBodyContent">
         <div style="color: #94a3b8; font-style: italic; font-size: 0.86rem; padding: 4px;">
           Listening to live interviewer audio... Say a question (e.g. <em>"Write a program in Python for for loop"</em>) or click <strong>[Screenshot]</strong> to analyze.
         </div>
       </div>
+
+      <!-- Anticipated Follow-Ups Strip -->
+      <div class="teleprompter-followups-container" id="teleprompterFollowupsContainer" style="display: none;">
+        <div class="followup-header-title">🔮 Anticipated Follow-Ups (Click to Solve):</div>
+        <div class="followup-chips-row" id="followupChipsRow"></div>
+      </div>
+
       <div class="teleprompter-resize-grip">◢</div>
+    </div>
+  </div>
+
+  <!-- Dynamic Resume Knowledge Base Modal -->
+  <div class="sonar-modal-backdrop" id="resumeModalBackdrop">
+    <div class="sonar-modal-card">
+      <div class="modal-header">
+        <div class="modal-title">
+          <span>📄</span>
+          <span>Candidate Resume & Dynamic Profile</span>
+        </div>
+        <button class="modal-close-btn" id="btnCloseResumeModal">✕</button>
+      </div>
+      <div class="modal-body">
+        <!-- Drag & Drop Resume Upload Zone -->
+        <div class="resume-upload-zone" id="resumeUploadZone">
+          <input type="file" id="resumeFileInput" accept=".pdf,.docx,.doc,.txt,.md,.png,.jpg,.jpeg,.webp" style="display: none;">
+          <div class="upload-zone-content" id="uploadZonePrompt">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#38bdf8" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+            <div style="font-weight: 600; color: #f8fafc; font-size: 0.88rem;">Drop candidate resume here or <span style="color: #38bdf8; text-decoration: underline; cursor: pointer;" id="btnBrowseResume">browse file</span></div>
+            <div style="color: #94a3b8; font-size: 0.76rem;">Supports PDF (Text & Scanned OCR), DOCX, Images (PNG/JPG), TXT, MD.</div>
+          </div>
+          <div class="upload-parsing-status" id="uploadParsingStatus" style="display: none;">
+            <span class="spinner-inline">⚡</span> <span id="uploadStatusText">Extracting candidate artifacts & parsing profile...</span>
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-col">
+            <label class="form-label">Candidate Name</label>
+            <input type="text" class="form-input" id="inputCandidateName" placeholder="e.g. John Doe">
+          </div>
+          <div class="form-col">
+            <label class="form-label">Target Role / Title</label>
+            <input type="text" class="form-input" id="inputTargetRole" placeholder="e.g. Full Stack Software Engineer">
+          </div>
+        </div>
+
+        <div class="form-group" id="extractedSkillsGroup" style="display: none;">
+          <label class="form-label">Extracted Skills & Core Strengths</label>
+          <div class="skills-tags-container" id="skillsTagsContainer"></div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Extracted Resume Content / Work Experience & Projects</label>
+          <textarea class="form-textarea" id="inputResumeText" rows="6" placeholder="Upload your resume above or paste your experience, past projects, and metrics here..."></textarea>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Target Job Description & Requirements (Optional)</label>
+          <textarea class="form-textarea" id="inputJobDescription" rows="3" placeholder="Paste job description or specific interview requirements..."></textarea>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-modal-cancel" id="btnCancelResumeModal">Cancel</button>
+        <button class="btn-modal-save" id="btnSaveResumeModal">🚀 Save Profile & Launch</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Session Summary & Debrief Exporter Modal -->
+  <div class="sonar-modal-backdrop" id="debriefModalBackdrop">
+    <div class="sonar-modal-card debrief-card">
+      <div class="modal-header">
+        <div class="modal-title">
+          <span>📑</span>
+          <span>Interview Session Debrief & Performance Export</span>
+        </div>
+        <button class="modal-close-btn" id="btnCloseDebriefModal">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="debrief-stats-banner" id="debriefStatsBanner">
+          <div class="stat-box"><span class="stat-val" id="statQuestionCount">0</span><span class="stat-lbl">Questions Solved</span></div>
+          <div class="stat-box"><span class="stat-val" id="statSessionDuration">00:00</span><span class="stat-lbl">Call Duration</span></div>
+          <div class="stat-box"><span class="stat-val" style="color: #4ade80;">100%</span><span class="stat-lbl">Stealth Score</span></div>
+        </div>
+        <div class="debrief-history-preview" id="debriefHistoryPreview">
+          <div style="color: #94a3b8; font-style: italic;">No questions solved in this session yet.</div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-modal-danger" id="btnQuitAppSession">🔴 Quit App & End Call</button>
+        <button class="btn-modal-cancel" id="btnCopyDebrief">📋 Copy Markdown</button>
+        <button class="btn-modal-save" id="btnDownloadDebrief">⬇️ Download Debrief (.md)</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- API Key Setup / Onboarding Modal -->
+  <div class="sonar-modal-backdrop" id="apiKeyModalBackdrop">
+    <div class="sonar-modal-card" style="width: 540px;">
+      <div class="modal-header">
+        <div class="modal-title">
+          <span>🔑</span>
+          <span>Groq API Key Setup</span>
+        </div>
+        <button class="modal-close-btn" id="btnCloseApiKeyModal">✕</button>
+      </div>
+      <div class="modal-body">
+        <p style="color: #cbd5e1; font-size: 0.85rem; line-height: 1.5; margin-bottom: 14px;">
+          Sonar AI uses <strong style="color: #38bdf8;">Groq Cloud LPU</strong> for sub-150ms live audio transcription and real-time coding solution synthesis.
+        </p>
+        <div class="form-group">
+          <label class="form-label" style="display: flex; justify-content: space-between; align-items: center;">
+            <span>Groq API Key (gsk_...)</span>
+            <a href="https://console.groq.com/keys" target="_blank" style="color: #38bdf8; text-decoration: none; font-size: 0.76rem;">Get Free Key at console.groq.com ↗</a>
+          </label>
+          <input type="password" class="form-input" id="inputGroqApiKey" placeholder="gsk_xxxxxxxxxxxxxxxxxxxxxxxxxxxx" autocomplete="off" />
+        </div>
+        <div style="font-size: 0.75rem; color: #94a3b8; margin-top: 6px;">
+          🔒 Your API key is stored securely in local Mac storage and is never sent to external servers.
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-modal-cancel" id="btnCancelApiKeyModal">Cancel</button>
+        <button class="btn-modal-save" id="btnSaveApiKeyModal">💾 Save & Activate Copilot</button>
+      </div>
     </div>
   </div>
 

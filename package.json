@@ -10,16 +10,79 @@
     "start:electron-only": "NODE_ENV=development ELECTRON_DEV_URL=http://localhost:3000/#hud electron .",
     "start:desktop": "concurrently \"npm run dev\" \"wait-on http://localhost:3000 && NODE_ENV=development ELECTRON_DEV_URL=http://localhost:3000/#hud electron .\"",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "docker:build": "docker build -t sonar-ai .",
+    "docker:run": "docker run -d -p 3000:3000 --name sonar-ai-app sonar-ai",
+    "docker:up": "docker compose up -d --build",
+    "docker:down": "docker compose down",
+    "package:mac": "vite build && electron-builder --mac",
+    "package:win": "vite build && electron-builder --win",
+    "package:linux": "vite build && electron-builder --linux",
+    "package:all": "vite build && electron-builder -mwl"
+  },
+  "build": {
+    "appId": "com.sonar.ai",
+    "productName": "Sonar AI Copilot",
+    "directories": {
+      "output": "release"
+    },
+    "mac": {
+      "target": ["dmg", "zip"],
+      "icon": "build/icon.png",
+      "hardenedRuntime": true,
+      "entitlements": "build/entitlements.mac.plist",
+      "entitlementsInherit": "build/entitlements.mac.plist",
+      "extendInfo": {
+        "NSMicrophoneUsageDescription": "Sonar AI needs microphone access to transcribe interview questions.",
+        "NSCameraUsageDescription": "Sonar AI needs camera access for video inputs.",
+        "NSScreenCaptureDescription": "Sonar AI needs screen capture access to analyze on-screen code."
+      }
+    },
+    "win": {
+      "target": [
+        { "target": "nsis", "arch": ["x64"] },
+        { "target": "portable", "arch": ["x64"] }
+      ],
+      "icon": "build/icon.ico",
+      "artifactName": "Sonar AI Copilot Setup ${version}.${ext}"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "allowElevation": true,
+      "installerIcon": "build/icon.ico",
+      "uninstallerIcon": "build/icon.ico",
+      "installerHeaderIcon": "build/icon.ico",
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Sonar AI Copilot",
+      "artifactName": "Sonar AI Copilot Setup ${version}.${ext}"
+    },
+    "linux": {
+      "target": ["AppImage"],
+      "icon": "build/icon.png"
+    },
+    "files": [
+      "dist/**/*",
+      "electron/**/*",
+      "package.json"
+    ]
   },
   "dependencies": {
     "canvas-confetti": "^1.9.4",
+    "dompurify": "^3.4.15",
+    "jszip": "^3.10.1",
     "lucide": "^0.475.0",
-    "prismjs": "^1.29.0"
+    "marked": "^18.0.12",
+    "pako": "^3.0.1",
+    "pdfjs-dist": "^6.2.108",
+    "prismjs": "^1.29.0",
+    "tesseract.js": "^7.0.0"
   },
   "devDependencies": {
     "concurrently": "^9.1.2",
-    "electron": "^34.2.0",
+    "electron": "^34.5.8",
+    "electron-builder": "^26.15.3",
     "vite": "^6.1.0",
     "wait-on": "^8.0.2"
   }

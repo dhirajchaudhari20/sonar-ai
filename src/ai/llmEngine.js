@@ -1,13 +1,17 @@
-// Multi-LLM Orchestration Engine (Groq, Gemini, OpenAI, Anthropic, and Offline Simulator)
+// Multi-LLM Orchestration Engine with Full Multi-Turn Conversation Memory (Groq, Gemini, OpenAI, Anthropic)
 
-import { buildInterviewPrompt } from './promptBuilder.js';
-import { findMockMatch, MOCK_INTERVIEW_DATA } from './mockData.js';
+import { buildSystemPrompt, buildInterviewPrompt, isExperienceQuestion } from './promptBuilder.js';
+import { findMockMatch } from './mockData.js';
 
-// Hardcoded Groq fallback key — ensures live API fires even if localStorage is empty (Electron first run)
-const GROQ_FALLBACK_KEY = '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';
 const GROQ_ENDPOINT = 'https://api.groq.com/openai/v1/chat/completions';
-const GROQ_PRIMARY_MODEL = 'openai/gpt-oss-120b';
-const GROQ_FALLBACK_MODELS = ['openai/gpt-oss-120b', 'qwen/qwen3.8-27b', 'openai/gpt-oss-20b'];
+const GROQ_FALLBACK_MODELS = [
+  'qwen/qwen3.8-27b',
+  'openai/gpt-oss-120b',
+  'openai/gpt-oss-20b',
+  'qwen/qwen3.6-27b',
+  'groq/compound',
+  'groq/compound-mini'
+];
 
 export class LLMEngine {
   constructor(getApiKeys, getSettings, getProfile) {
@@ -16,21 +20,78 @@ export class LLMEngine {
     this.getProfile = getProfile;
   }
 
-  async generateAnswer(question, onChunk, onComplete, onError) {
+  // Format conversation history for OpenAI-compatible chat completions
+  buildChatMessages(currentQuestion, conversationHistory = []) {
+    const profile = this.getProfile ? this.getProfile() : null;
+    const systemPrompt = buildSystemPrompt(profile, currentQuestion);
+
+    const messages = [
+      { role: 'system', content: systemPrompt }
+    ];
+
+    // Append past turns (up to last 8 turns to retain deep context without exceeding token limits)
+    const recentTurns = conversationHistory.slice(-8);
+    for (const turn of recentTurns) {
+      if (turn.question) {
+        messages.push({ role: 'user', content: turn.question });
+      }
+      if (turn.rawAnswer || turn.formattedText || turn.rawCode) {
+        const assistantContent = turn.rawAnswer || turn.formattedText || (turn.rawCode ? `Code:\n\`\`\`\n${turn.rawCode}\n\`\`\`` : '');
+        if (assistantContent) {
+          messages.push({ role: 'assistant', content: assistantContent });
+        }
+      }
+    }
+
+    // Append current question
+    messages.push({
+      role: 'user',
+      content: buildInterviewPrompt(currentQuestion)
+    });
+
+    // ── EXPERIENCE QUESTION PREFILL ──────────────────────────────────────────
+    // For "have you worked on X?" type questions, inject an assistant prefill
+    // message that FORCES the model to start from "Yes, I have worked on..."
+    // This is far more reliable than system prompt instructions alone.
+    if (isExperienceQuestion(currentQuestion)) {
+      // Extract the core topic from the question
+      const topicMatch = currentQuestion.match(
+        /(?:worked on|used|built|experience with|familiar with|background in|experience in|knowledge of|about|with)\s+([\w\s.+#-]{2,40})/i
+      );
+      const topic = topicMatch
+        ? topicMatch[1].trim().replace(/[?.!,]+$/, '')
+        : currentQuestion.replace(/^(have you|do you have|are you familiar with|tell me about your experience with|did you work on)\s*/i, '').replace(/[?.!,]+$/, '').trim();
+
+      const prefill = `✅ Direct Answer (Bol do confidently):
+• Yes, I have worked on ${topic} — hands-on experience through real projects.
+
+🚀 Project Reference:`;
+
+      messages.push({
+        role: 'assistant',
+        content: prefill
+      });
+    }
+    // ────────────────────────────────────────────────────────────────────────
+
+    return messages;
+  }
+
+  async generateAnswer(question, conversationHistory = [], onChunk, onComplete, onError) {
     const startTime = performance.now();
-    const settings = this.getSettings();
-    const keys = this.getApiKeys();
-    const prompt = buildInterviewPrompt(question);
-
-    // Default to groq (fastest). Use hardcoded key as fallback if localStorage is empty.
+    const settings = this.getSettings ? this.getSettings() : {};
+    const keys = this.getApiKeys ? this.getApiKeys() : {};
     const provider = settings.provider || 'groq';
-    const activeKey = keys[provider] || (provider === 'groq' ? GROQ_FALLBACK_KEY : null);
+    const activeKey = keys[provider] || keys.groq;
 
-    // If no key at all, show error so user knows
-    if (!activeKey || provider === 'mock') {
-      onComplete('⚠️ No API key configured. Open Settings and add a Groq or OpenAI key.', 0, 'No Provider');
+    if (!activeKey || !activeKey.trim()) {
+      const errMsg = '⚠️ Groq API Key required. Click "🔑 API Key" in the menu to enter your free Groq key from console.groq.com/keys';
+      if (onError) onError(new Error(errMsg));
+      if (onComplete) onComplete(errMsg, 0, 'No Key');
       return;
     }
+
+    const messages = this.buildChatMessages(question, conversationHistory);
 
     try {
       if (provider === 'groq') {
@@ -41,12 +102,12 @@ export class LLMEngine {
               GROQ_ENDPOINT,
               activeKey,
               modelCandidate,
-              prompt,
+              messages,
               onChunk,
               onComplete,
               startTime
             );
-            return; // Success!
+            return; // Success
           } catch (modelErr) {
             lastErr = modelErr;
             console.warn(`[LLMEngine] Groq model ${modelCandidate} failed, trying next candidate...`, modelErr);
@@ -54,44 +115,66 @@ export class LLMEngine {
         }
         throw lastErr || new Error('All Groq models failed');
       } else if (provider === 'gemini') {
-        await this.callGemini(activeKey, prompt, settings.model || 'gemini-1.5-flash', onChunk, onComplete, startTime);
+        await this.callGemini(activeKey, messages, settings.model || 'gemini-1.5-flash', onChunk, onComplete, startTime);
       } else if (provider === 'openai') {
         await this.callOpenAICompatible(
           'https://api.openai.com/v1/chat/completions',
           activeKey,
           settings.model || 'gpt-4o',
-          prompt,
+          messages,
           onChunk,
           onComplete,
           startTime
         );
       } else if (provider === 'anthropic') {
-        await this.callAnthropic(activeKey, prompt, settings.model || 'claude-3-5-sonnet-20241022', onChunk, onComplete, startTime);
+        await this.callAnthropic(activeKey, messages, settings.model || 'claude-3-5-sonnet-20241022', onChunk, onComplete, startTime);
       } else {
-        onComplete('⚠️ Unknown provider: ' + provider, 0, 'Error');
+        if (onComplete) onComplete('⚠️ Unknown provider: ' + provider, 0, 'Error');
       }
     } catch (err) {
-      // Show actual error in HUD — do NOT silently switch to simulator
       console.error(`[LLMEngine] ${provider} API error:`, err);
-      onComplete(`❌ API Error (${provider}): ${err.message}\n\nCheck your API key or network connection.`, 0, 'Error');
+      if (onError) onError(err);
+      if (onComplete) {
+        onComplete(`❌ API Error (${provider}): ${err.message}\n\nPlease check your API key or network connection.`, 0, 'Error');
+      }
     }
   }
 
-  // Google Gemini API Stream
-  async callGemini(apiKey, prompt, model, onChunk, onComplete, startTime) {
+  // Google Gemini API Multi-Turn Stream
+  async callGemini(apiKey, messages, model, onChunk, onComplete, startTime) {
     const cleanModel = model.includes('gemini') ? model : 'gemini-1.5-flash';
     const url = `https://generativelanguage.googleapis.com/v1beta/models/${cleanModel}:streamGenerateContent?key=${apiKey}&alt=sse`;
+
+    // Convert messages to Gemini format
+    const contents = [];
+    let systemInstruction = null;
+
+    for (const msg of messages) {
+      if (msg.role === 'system') {
+        systemInstruction = { parts: [{ text: msg.content }] };
+      } else {
+        contents.push({
+          role: msg.role === 'assistant' ? 'model' : 'user',
+          parts: [{ text: msg.content }]
+        });
+      }
+    }
+
+    const payload = {
+      contents: contents,
+      generationConfig: {
+        temperature: 0.2,
+        maxOutputTokens: 1500
+      }
+    };
+    if (systemInstruction) {
+      payload.systemInstruction = systemInstruction;
+    }
 
     const response = await fetch(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        contents: [{ role: 'user', parts: [{ text: prompt }] }],
-        generationConfig: {
-          temperature: 0.3,
-          maxOutputTokens: 1024
-        }
-      })
+      body: JSON.stringify(payload)
     });
 
     if (!response.ok) {
@@ -110,7 +193,7 @@ export class LLMEngine {
 
       buffer += decoder.decode(value, { stream: true });
       const lines = buffer.split('\n');
-      buffer = lines.pop(); // Keep remaining incomplete line
+      buffer = lines.pop();
 
       for (const line of lines) {
         if (line.startsWith('data: ')) {
@@ -119,21 +202,19 @@ export class LLMEngine {
             const chunk = data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
             if (chunk) {
               fullText += chunk;
-              onChunk(chunk, fullText);
+              if (onChunk) onChunk(chunk, fullText);
             }
-          } catch {
-            // Ignore parse errors on SSE ping lines
-          }
+          } catch {}
         }
       }
     }
 
     const latencyMs = Math.round(performance.now() - startTime);
-    onComplete(fullText, latencyMs, `Gemini (${cleanModel})`);
+    if (onComplete) onComplete(fullText, latencyMs, `Gemini (${cleanModel})`);
   }
 
-  // OpenAI / Groq Compatible Streaming
-  async callOpenAICompatible(endpoint, apiKey, model, prompt, onChunk, onComplete, startTime) {
+  // OpenAI / Groq Compatible Multi-Turn Streaming
+  async callOpenAICompatible(endpoint, apiKey, model, messages, onChunk, onComplete, startTime) {
     const response = await fetch(endpoint, {
       method: 'POST',
       headers: {
@@ -142,8 +223,9 @@ export class LLMEngine {
       },
       body: JSON.stringify({
         model: model,
-        messages: [{ role: 'user', content: prompt }],
-        temperature: 0.2,
+        messages: messages,
+        temperature: 0.15,
+        max_tokens: 1500,
         stream: true
       })
     });
@@ -172,24 +254,71 @@ export class LLMEngine {
         if (trimmed.startsWith('data: ')) {
           try {
             const parsed = JSON.parse(trimmed.slice(6));
-            const delta = parsed.choices?.[0]?.delta?.content || '';
-            if (delta) {
-              fullText += delta;
-              onChunk(delta, fullText);
+            const delta = parsed.choices?.[0]?.delta || {};
+            const content = delta.content || delta.reasoning || '';
+            if (content) {
+              fullText += content;
+              if (onChunk) onChunk(content, fullText);
             }
-          } catch {
-            // ignore
-          }
+          } catch {}
         }
       }
     }
 
+    // Fallback: if streaming yielded an empty response, try non-streaming once
+    if (!fullText || fullText.trim().length === 0) {
+      try {
+        const fallbackRes = await fetch(endpoint, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${apiKey}`
+          },
+          body: JSON.stringify({
+            model: model,
+            messages: messages,
+            temperature: 0.2,
+            max_tokens: 1500,
+            stream: false
+          })
+        });
+        if (fallbackRes.ok) {
+          const data = await fallbackRes.json();
+          const content = data.choices?.[0]?.message?.content || '';
+          if (content) {
+            fullText = content;
+            if (onChunk) onChunk(content, fullText);
+          }
+        }
+      } catch (fbErr) {
+        console.warn(`[LLMEngine] Non-streaming fallback failed for ${model}:`, fbErr);
+      }
+    }
+
+    if (!fullText || fullText.trim().length === 0) {
+      throw new Error(`Model ${model} returned an empty response`);
+    }
+
     const latencyMs = Math.round(performance.now() - startTime);
-    onComplete(fullText, latencyMs, model);
+    if (onComplete) onComplete(fullText, latencyMs, model);
   }
 
-  // Anthropic API streaming
-  async callAnthropic(apiKey, prompt, model, onChunk, onComplete, startTime) {
+  // Anthropic API streaming with Conversation History
+  async callAnthropic(apiKey, messages, model, onChunk, onComplete, startTime) {
+    let systemPrompt = '';
+    const anthropicMessages = [];
+
+    for (const msg of messages) {
+      if (msg.role === 'system') {
+        systemPrompt = msg.content;
+      } else {
+        anthropicMessages.push({
+          role: msg.role === 'assistant' ? 'assistant' : 'user',
+          content: msg.content
+        });
+      }
+    }
+
     const response = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: {
@@ -200,14 +329,16 @@ export class LLMEngine {
       },
       body: JSON.stringify({
         model: model,
-        max_tokens: 1024,
-        messages: [{ role: 'user', content: prompt }],
+        max_tokens: 1500,
+        system: systemPrompt,
+        messages: anthropicMessages,
         stream: true
       })
     });
 
     if (!response.ok) {
-      throw new Error(`Anthropic error ${response.status}`);
+      const errText = await response.text();
+      throw new Error(`Anthropic error ${response.status}: ${errText}`);
     }
 
     const reader = response.body.getReader();
@@ -228,7 +359,7 @@ export class LLMEngine {
             const data = JSON.parse(line.slice(6));
             if (data.type === 'content_block_delta' && data.delta?.text) {
               fullText += data.delta.text;
-              onChunk(data.delta.text, fullText);
+              if (onChunk) onChunk(data.delta.text, fullText);
             }
           } catch {}
         }
@@ -236,57 +367,6 @@ export class LLMEngine {
     }
 
     const latencyMs = Math.round(performance.now() - startTime);
-    onComplete(fullText, latencyMs, model);
-  }
-
-  // Built-in intelligent simulator with streaming effect
-  async runSimulator(question, startTime, onChunk, onComplete, prefix = '') {
-    const match = findMockMatch(question);
-    let rawText = '';
-
-    if (match) {
-      rawText = `### ⚡ QUICK TALKING POINTS
-${match.quickBullets.map(b => `- ${b}`).join('\n')}
-
----
-
-### 🎯 STRUCTURED ANSWER (${match.category})
-${match.starAnswer}`;
-    } else {
-      // Dynamic synthesis for unrecognized queries
-      rawText = `### ⚡ QUICK TALKING POINTS
-- **Direct Answer:** Ground this in my 6+ years building real-time full-stack architectures.
-- **Key Metric:** Highlight 45% p99 latency reduction and 1.2M DAU scale at Nexus Tech.
-- **Outcome:** Emphasize reliable execution, cross-functional alignment, and clean maintainable code.
-
----
-
-### 🎯 STRUCTURED RESPONSE
-**Situation & Context:**
-In my previous role leading core engineering at Nexus Tech, I dealt directly with similar challenges around high availability and system resilience.
-
-**Action Taken:**
-1. Broke down the problem into decoupled sub-components with clear interface contracts.
-2. Implemented automated profiling, telemetry metrics, and load testing against peak simulated traffic.
-3. Collaborated closely with product stakeholders to align on SLA constraints and fallback degradations.
-
-**Result & Takeaway:**
-Successfully shipped the feature with zero downtime, lowering incident rates by 30% and creating a reusable architectural blueprint for the engineering team.`;
-    }
-
-    if (prefix) rawText = prefix + rawText;
-
-    // Simulate natural fast streaming (15ms per token/word)
-    const tokens = rawText.split(/(\s+)/);
-    let streamed = '';
-
-    for (let i = 0; i < tokens.length; i++) {
-      streamed += tokens[i];
-      onChunk(tokens[i], streamed);
-      await new Promise(r => setTimeout(r, 12));
-    }
-
-    const latencyMs = Math.round(performance.now() - startTime);
-    onComplete(streamed, latencyMs, 'Parakeet Copilot (Instant Neural Engine)');
+    if (onComplete) onComplete(fullText, latencyMs, model);
   }
 }

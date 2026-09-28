@@ -1,4 +1,4 @@
-// Screen Capture & Multimodal Vision Problem Parser for LeetCode, HackerRank, and CoderPad
+import { ProfileStore } from '../storage/profileStore.js';
 
 export class ScreenCaptureAssistant {
   constructor(onProblemExtracted) {
@@ -48,10 +48,65 @@ export class ScreenCaptureAssistant {
   }
 
   async analyzeProblemImage(imageDataUrl, promptExtra = '') {
-    // Return extracted LeetCode problem statement from screen
+    const apiKeys = ProfileStore.getApiKeys();
+    const apiKey = apiKeys.groq;
+    
+    if (!apiKey) {
+      return {
+        title: "API Key Missing",
+        extractedPrompt: "Please configure your Groq API Key in the settings to use the screenshot feature."
+      };
+    }
+
+    try {
+      const prompt = `You are an OCR and code problem extraction assistant. Look at the provided screenshot.
+If there is a coding problem, technical question, or interview prompt visible on the screen, extract its exact text.
+If there is NO coding problem visible on the screen, do not hallucinate or make one up. Just return "No problem detected" for both fields.
+Return ONLY a valid JSON object with the following format:
+{
+  "title": "A short, concise title for the question (or 'No problem detected')",
+  "extractedPrompt": "The full text of the question, or 'No problem detected if none is visible'."
+}`;
+
+      const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${apiKey}`
+        },
+        body: JSON.stringify({
+          model: 'llama-3.2-11b-vision-preview',
+          messages: [
+            {
+              role: 'user',
+              content: [
+                { type: 'text', text: prompt },
+                {
+                  type: 'image_url',
+                  image_url: { url: imageDataUrl }
+                }
+              ]
+            }
+          ],
+          temperature: 0.1,
+          response_format: { type: 'json_object' }
+        })
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        const content = data.choices?.[0]?.message?.content;
+        if (content) {
+          return JSON.parse(content);
+        }
+      }
+    } catch (err) {
+      console.error('[ScreenCapture] Vision API error:', err);
+    }
+    
     return {
-      title: "LeetCode 76: Minimum Window Substring",
-      extractedPrompt: "LeetCode 76. Minimum Window Substring: Given two strings s and t of lengths m and n respectively, return the minimum window substring of s such that every character in t (including duplicates) is included in the window. If there is no such substring, return the empty string \"\"."
+      title: "Error Extracting Text",
+      extractedPrompt: "Failed to extract text from the screenshot. Please try again."
     };
   }
 }

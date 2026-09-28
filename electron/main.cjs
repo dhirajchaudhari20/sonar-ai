@@ -15,16 +15,21 @@ function createHudWindow() {
     app.dock.hide();
   }
 
+  // Windows: Hide from taskbar at app level
+  if (process.platform === 'win32') {
+    app.setAppUserModelId('com.sonar.ai');
+  }
+
   const primaryDisplay = screen.getPrimaryDisplay();
   const { width, height } = primaryDisplay.workAreaSize;
 
-  // Start with compact height (90px) so the transparent window never intercepts clicks on other apps
+  // Start with compact height (105px) and 1080px width so all menu buttons fit with plenty of margin
   hudWindow = new BrowserWindow({
-    width: 720,
-    height: 90,
+    width: 1080,
+    height: 105,
     minWidth: 480,
     minHeight: 60,
-    x: Math.round((width - 720) / 2),
+    x: Math.round((width - 1080) / 2),
     y: 8,
     frame: false,
     transparent: true,
@@ -45,11 +50,15 @@ function createHudWindow() {
   });
 
   // OS Stealth Flag: Excludes window from screen capture & screen share APIs
+  // Note: setContentProtection works on macOS & Windows
   hudWindow.setContentProtection(true);
 
   // Pin on top of all full-screen apps and video calls
-  hudWindow.setAlwaysOnTop(true, 'screen-saver', 1);
-  hudWindow.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
+  const alwaysOnTopLevel = process.platform === 'darwin' ? 'screen-saver' : 'screen-saver';
+  hudWindow.setAlwaysOnTop(true, alwaysOnTopLevel, 1);
+  if (process.platform !== 'win32') {
+    hudWindow.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
+  }
 
   const DEV_URL = process.env.ELECTRON_DEV_URL || 'http://localhost:3000/#hud';
   const isDev = process.env.NODE_ENV !== 'production';
@@ -63,6 +72,10 @@ function createHudWindow() {
       hudWindow.loadURL(DEV_URL);
     });
   }
+  // DevTools: only open in explicit debug mode (auto-open causes chunked_data_pipe Error:-2 spam
+  // in transparent Electron windows). Open manually with Ctrl+Shift+I if needed.
+  // hudWindow.webContents.openDevTools({ mode: 'detach' });
+
 
   hudWindow.on('closed', () => {
     hudWindow = null;
@@ -79,19 +92,22 @@ function registerShortcuts() {
       } else {
         hudWindow.show();
         hudWindow.setAlwaysOnTop(true, 'screen-saver', 1);
+        if (process.platform !== 'win32') {
+          hudWindow.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
+        }
       }
     }
   });
 
   globalShortcut.register('Escape', () => {
     if (hudWindow && hudWindow.isVisible() && hudWindow.isFocused()) {
-      hudWindow.setSize(720, 90);
+      hudWindow.setSize(1080, 105);
     }
   });
 
   globalShortcut.register('CommandOrControl+Shift+S', () => {
     if (hudWindow) {
-      hudWindow.setSize(720, 580);
+      hudWindow.setSize(1080, 580);
       hudWindow.webContents.send('trigger-screen-sniper');
     }
   });
@@ -100,15 +116,6 @@ function registerShortcuts() {
 app.whenReady().then(async () => {
   session.defaultSession.setPermissionCheckHandler(() => true);
   session.defaultSession.setPermissionRequestHandler((webContents, permission, callback) => callback(true));
-
-  // Request macOS microphone access natively
-  if (process.platform === 'darwin' && systemPreferences.askForMediaAccess) {
-    try {
-      await systemPreferences.askForMediaAccess('microphone');
-    } catch (e) {
-      console.warn('Microphone permission query error:', e);
-    }
-  }
 
   // Override CSP to allow network calls to Groq API
   session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
@@ -161,17 +168,40 @@ ipcMain.on('move-window-by', (event, { deltaX, deltaY }) => {
 
 ipcMain.on('resize-window', (event, { width, height }) => {
   const win = BrowserWindow.fromWebContents(event.sender);
-  if (win) {
-    win.setSize(Math.max(480, Math.round(width)), Math.max(60, Math.round(height)));
-  }
+  if (!win) return;
+
+  const safeW = Math.max(480, Math.round(width));
+  const safeH = Math.max(60, Math.round(height));
+
+  const doResize = () => {
+    try {
+      const display = screen.getPrimaryDisplay();
+      const [, y] = win.getPosition();
+      const newX = Math.round((display.workAreaSize.width - safeW) / 2);
+      win.setSize(safeW, safeH, false);
+      win.setBounds({ x: newX, y: Math.max(0, y), width: safeW, height: safeH }, false);
+      win.setAlwaysOnTop(true, 'screen-saver', 1);
+      if (process.platform !== 'win32') {
+        win.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
+      }
+    } catch (e) {
+      console.warn('[resize-window] resize failed:', e.message);
+    }
+  };
+
+  // We previously disabled setContentProtection during resize to avoid a macOS transparent window glitch,
+  // but this causes the window to flash on screen share (compromising stealth).
+  // In modern Electron versions, we just do the resize directly.
+  doResize();
 });
+
 
 ipcMain.on('end-session', () => {
   if (hudWindow) {
-    hudWindow.destroy();
+    try { hudWindow.destroy(); } catch {}
     hudWindow = null;
   }
-  app.quit();
+  app.exit(0);
 });
 
 ipcMain.on('toggle-hud-window', () => {
@@ -182,6 +212,9 @@ ipcMain.on('toggle-hud-window', () => {
     else {
       hudWindow.show();
       hudWindow.setAlwaysOnTop(true, 'screen-saver', 1);
+      if (process.platform !== 'win32') {
+        hudWindow.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
+      }
     }
   }
 });
@@ -203,5 +236,8 @@ ipcMain.on('minimize-window', (event) => {
 
 ipcMain.on('close-window', (event) => {
   const win = BrowserWindow.fromWebContents(event.sender);
-  if (win) win.close();
+  if (win) {
+    try { win.destroy(); } catch {}
+  }
+  app.exit(0);
 });

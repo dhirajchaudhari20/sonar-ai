@@ -139,10 +139,11 @@ export const INITIAL_SESSIONS = [
 ];
 
 export const INITIAL_USER = {
-  name: "Dhiraj Kishor CHAUDHARI",
-  email: "dhirajvva14@gmail.com",
-  plan: "Free Plan",
-  trialRemaining: "10 min",
-  credits: 0,
-  activeResume: "Dhiraj_Software_Engineer_Resume.pdf"
+  name: "Candidate",
+  email: "candidate@interview.ai",
+  plan: "Live Copilot",
+  trialRemaining: "Unlimited",
+  credits: 10,
+  activeResume: ""
 };
+

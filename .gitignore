@@ -15,6 +15,12 @@ Thumbs.db
 *.deb
 *.rpm
 *.snap
+*.app
+build/
+release/
+*.png
+test_*.js
+list_models.js
 
 # Environment variables
 .env
